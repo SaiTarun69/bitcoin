@@ -10,7 +10,7 @@ defmodule Transaction do
             curNonce = findNonce(datahash)
             curHash = findCurHash(datahash, curNonce)
             chain =  chain |> Blockchain.insert_block(blockli, curNonce, curHash)
-            IO.inspect chain
+            #IO.inspect chain
             :timer.sleep(5)
             transaction(li, count+1, chain)
         end
@@ -36,6 +36,7 @@ defmodule Transaction do
                 Genclass.setAmount(sender, senderBal-amount)
                 Genclass.setAmount(receiver, receiverBal+amount)
                 tranli = [Genclass.getProcId(sender), Genclass.getProcId(receiver), amount]
+                Genclass.broadCastTransactions(:user, tranli)
                 #IO.inspect tranli
                 #IO.inspect blockli
                 recFun(li, n-1, blockli++[tranli])
