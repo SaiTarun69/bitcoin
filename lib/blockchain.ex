@@ -1,13 +1,13 @@
 defmodule Blockchain do
 
-    def new(chain, data, nonce) do
+    def new(chain, data, nonce, curHash) do
         block = data |> Block.zero(nonce)
-      [Sha.insert_hash(block)]
+      [Sha.insert_hash(block, curHash)]
     end
   
-    def insert_block(chain, data, nonce) do
+    def insert_block(chain, data, nonce, curHash) do
       %Block{index: ind, hash: prev} = hd(chain)
-      block = data |> Block.new(ind+1, nonce, prev) |> Sha.insert_hash
+      block = data |> Block.new(ind+1, nonce, prev) |> Sha.insert_hash(curHash)
       [block | chain]
   
     end

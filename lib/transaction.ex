@@ -1,13 +1,18 @@
 defmodule Transaction do
-    def transaction(li, count) do
+    def transaction(li, count, chain) do
         if(count<3) do
             blockli = recFun(li, 10, [])
             #IO.puts length(blockli)
             #IO.inspect blockli
             IO.puts "---------------------------------------------------------"
-            findNonce(blockli, 0 , 0)
+            prevBlock = hd(chain)
+            datahash= :crypto.hash(:sha256, blockli++[prevBlock.prev_hash]++[prevBlock.index+1]) |> Base.encode16
+            curNonce = findNonce(datahash)
+            curHash = findCurHash(datahash, curNonce)
+            chain =  chain |> Blockchain.insert_block(blockli, curNonce, curHash)
+            IO.inspect chain
             :timer.sleep(5)
-            transaction(li, count+1)
+            transaction(li, count+1, chain)
         end
     end
 
@@ -42,12 +47,10 @@ defmodule Transaction do
         blockli
     end
 
-    def findNonce(blockli, prevHash, index) do
+    def findNonce(datahash) do
         #IO.puts "in find Nonce"
-        datahash= :crypto.hash(:sha256, blockli++[prevHash]++[index]) |> Base.encode16
-        IO.inspect datahash
         finalNonce = getTarget(datahash, Enum.random(1..4294967296))
-        IO.inspect finalNonce
+        #IO.inspect finalNonce
     end
 
     def getTarget(datahash, nonceValue) do
@@ -60,5 +63,11 @@ defmodule Transaction do
                         getTarget(datahash, Enum.random(1..2147483647))
                     end
         finalNonce
+    end
+
+    def findCurHash(datahash, nonce) do
+        str = datahash<>to_string(nonce)
+        curHash= :crypto.hash(:sha256, str) |> Base.encode16
+        curHash
     end
 end

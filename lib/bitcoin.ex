@@ -14,15 +14,18 @@ defmodule Bitcoin do
                         tli
                       end)
     IO.inspect li
-    genNonce = Transaction.findNonce(transactionList, "0", 0)
-    chain = Blockchain.new([], transactionList, genNonce)
+    datahash= :crypto.hash(:sha256, transactionList++["0"]++[0]) |> Base.encode16
+    #IO.inspect datahash
+    genNonce = Transaction.findNonce(datahash)
+    curHash = Transaction.findCurHash(datahash, genNonce)
+    chain = Blockchain.new([], transactionList, genNonce, curHash)
     IO.inspect chain
 
     Enum.each(li, fn(x) ->
                 Genclass.broadCastTransactions(x, transactionList)
               end)
     blockVar = hd(chain)
-    IO.inspect blockVar.timestamp
+    #IO.inspect blockVar.timestamp
     # Enum.each(li, fn(x) ->
     #   temp = Genclass.getTranLi(x)
     #   IO.inspect temp
@@ -33,7 +36,7 @@ defmodule Bitcoin do
     #     end)
     # fullNet(li)
 
-    #Transaction.transaction(li, 0)
+    Transaction.transaction(li, 0, chain)
 
     # Enum.each(li, fn(x) ->
     #     bal=Genclass.getAmount(x)

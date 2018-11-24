@@ -7,8 +7,8 @@ defmodule Sha do
             |> sha256
     end
   
-    def insert_hash(%{} = block) do
-      %{block | hash: hash(block)}
+    def insert_hash(%{} = block, curHash) do
+      %{block | hash: curHash}
     end
   
     def sha256(binary) do
