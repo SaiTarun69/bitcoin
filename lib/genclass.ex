@@ -7,7 +7,7 @@ defmodule Genclass do
 
     def init(:user) do
         :gproc.reg(gproc_key(:user))
-        {:ok, {0, 0, 0, 100, [], "", [], []}}  #{id, sk, pk, amount, adjli, message, transactionli, blockchain}
+        {:ok, {0, 0, 0, 100, [], "", [], [], []}}  #{id, sk, pk, amount, adjli, message, transactionli, blockchain}
     end
 
     defp gproc_key(:user) do
@@ -21,7 +21,7 @@ defmodule Genclass do
     def init({:user, :minor}) do
         :gproc.reg(gproc_key(:user))
         :gproc.reg(gproc_key(:minor))
-        {:ok, {0, 0, 0, 100, [], "", [], []}}
+        {:ok, {0, 0, 0, 100, [], "", [], [] ,[]}}  #{id, sk, pk, amount, adjli, message, transactionli, blockchain, datablock}
     end
 
     defp gproc_key(:minor) do
@@ -60,8 +60,8 @@ defmodule Genclass do
     end
 
     def handle_cast({:updateBal, balance}, state) do
-        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli} = state
-        state = {procid, privateKey, publicKey, balance, networkLi, msg, tranLi, blockli}
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        state = {procid, privateKey, publicKey, balance, networkLi, msg, tranLi, blockli, datablock}
         {:noreply, state}
     end
 
@@ -80,8 +80,8 @@ defmodule Genclass do
 
     def handle_cast({:processKey, id, x, y}, state) do
         #IO.puts " inside cast "
-        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli} = state
-        state={id, x, y, amount, networkLi, msg, tranLi, blockli}
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        state={id, x, y, amount, networkLi, msg, tranLi, blockli, datablock}
         #IO.puts x
         {:noreply, state}
     end
@@ -91,8 +91,8 @@ defmodule Genclass do
     end
 
     def handle_cast({:fullNetList, adjList}, state) do
-        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli} = state
-        state = {procid, privateKey, publicKey, amount, adjList, msg, tranLi, blockli}
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        state = {procid, privateKey, publicKey, amount, adjList, msg, tranLi, blockli, datablock}
         #IO.inspect adjList
         {:noreply, state}
     end
@@ -127,8 +127,8 @@ defmodule Genclass do
     end
 
     def handle_cast({:userComm, message}, state) do
-        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli} = state
-        state={procid, privateKey, publicKey, amount, networkLi, msg, tranLi++[message], blockli}
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        state={procid, privateKey, publicKey, amount, networkLi, msg, tranLi++[message], blockli, datablock}
         {:noreply, state}
     end
 
@@ -147,8 +147,8 @@ defmodule Genclass do
     end
 
     def handle_cast({:msgToUpdate, message}, state) do
-        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli} = state
-        state={procid, privateKey, publicKey, amount, networkLi, message, tranLi, blockli}
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        state={procid, privateKey, publicKey, amount, networkLi, message, tranLi, blockli, datablock}
         {:noreply, state}
     end
 
@@ -161,14 +161,30 @@ defmodule Genclass do
         {:reply, msg, state}
     end
 
-    def broadCastBlock(topic, block) do
+    def broadCastBlock(topic, chain) do
         #GenServer.cast(pid, {:tranCast, tranToUpdate})
-        GenServer.cast({:via, :gproc, gproc_key(:user)}, {:blockComm, block})
+        GenServer.cast({:via, :gproc, gproc_key(:user)}, {:blockComm, chain})
     end
 
-    def handle_cast({:blockComm, block}, state) do
-        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli} = state
-        state={procid, privateKey, publicKey, amount, networkLi, msg, tranLi, block}
+    def handle_cast({:blockComm, chain}, state) do
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        #blockli = blockli |> Blockchain.insert_block(chain)
+        state={procid, privateKey, publicKey, amount, networkLi, msg, tranLi, chain++blockli, datablock}
+        {:noreply, state}
+    end
+
+    def broadCastToMiner(topic, minordata, chain) do
+        #GenServer.cast(pid, {:tranCast, tranToUpdate})
+        GenServer.cast({:via, :gproc, gproc_key(:minor)}, {:minorComm, minordata, chain})
+        IO.puts "after minor cast"
+        chain = Transaction.mineFun(minordata, chain)
+        #a=[1,2,3]
+        chain
+    end
+
+    def handle_cast({:minorComm, minordata, chain}, state) do
+        {procid, privateKey, publicKey, amount, networkLi, msg, tranLi, blockli, datablock} = state
+        state={procid, privateKey, publicKey, amount, networkLi, msg, tranLi, chain, minordata}
         {:noreply, state}
     end
 
@@ -179,6 +195,15 @@ defmodule Genclass do
     def handle_call({:getBlockli}, _from, state) do
         blockli= elem(state, 7)
         {:reply, blockli, state}
+    end
+
+    def getMinorDataLi(pid) do
+        GenServer.call(pid, {:getminordatali})
+    end
+
+    def handle_call({:getminordatali}, _from, state) do
+        minorData= elem(state, 8)
+        {:reply, minorData, state}
     end
 
 end

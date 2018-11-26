@@ -1,7 +1,12 @@
 defmodule Bitcoin do
   def users(num) do
+    mlen = if(num<=10) do
+              1
+           else
+              div(num, 10)
+           end
     userLen=Enum.map(1..num,&(&1))
-    minorLen = Enum.take_random(userLen, 5)
+    minorLen = Enum.take_random(userLen, mlen)
     userLen = userLen -- minorLen
     userli=Enum.map(userLen, fn(x) ->
       {:ok, pid}= Genclass.start_link(:user)
@@ -36,10 +41,6 @@ defmodule Bitcoin do
     #IO.inspect chain
 
     Genclass.broadCastBlock(:user, chain)
-    # Enum.each(totalUsers, fn(x) ->
-    #   temp = Genclass.getBlockLi(x)
-    #   IO.inspect temp
-    # end)
 
     # Enum.each(totalUsers, fn(x) ->
     #             Genclass.broadCastTransactions(x, transactionList)
@@ -55,15 +56,20 @@ defmodule Bitcoin do
 
     Transaction.transaction(totalUsers, 0, chain)
 
+    Enum.each(totalUsers, fn(x) ->
+      temp = Genclass.getBlockLi(x)
+      IO.puts "*******************************************************************************"
+      IO.inspect temp
+    end)
     # Enum.each(li, fn(x) ->
     #     bal=Genclass.getAmount(x)
     #     IO.inspect bal
     #   end)
 
-    Enum.each(totalUsers, fn(x) ->
-      temp = Genclass.getTranLi(x)
-      IO.inspect temp
-    end)
+    # Enum.each(totalUsers, fn(x) ->
+    #   temp = Genclass.getTranLi(x)
+    #   IO.inspect temp
+    # end)
     
     # Enum.map(0..num-1, fn(x) ->
     #   id=Enum.at(li, x)

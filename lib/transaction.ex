@@ -4,12 +4,8 @@ defmodule Transaction do
             blockli = recFun(li, 10, [])
             #IO.puts length(blockli)
             #IO.inspect blockli
-            IO.puts "---------------------------------------------------------"
-            prevBlock = hd(chain)
-            datahash= :crypto.hash(:sha256, blockli++[prevBlock.prev_hash]++[prevBlock.index+1]) |> Base.encode16
-            curNonce = findNonce(datahash)
-            curHash = findCurHash(datahash, curNonce)
-            chain =  chain |> Blockchain.insert_block(blockli, curNonce, curHash)
+            chain = Genclass.broadCastToMiner(:minor, blockli, chain)
+            #chain = mineFun(chain, blockli)
             #IO.inspect chain
             :timer.sleep(5)
             transaction(li, count+1, chain)
@@ -46,6 +42,19 @@ defmodule Transaction do
             end
         end
         blockli
+    end
+
+    def mineFun(minordata, chain) do
+        IO.puts "---------------------------------------------------------"
+        prevBlock = hd(chain)
+        datahash= :crypto.hash(:sha256, minordata++[prevBlock.hash]++[prevBlock.index+1]) |> Base.encode16
+        curNonce = findNonce(datahash)
+        curHash = findCurHash(datahash, curNonce)
+        block = minordata |> Block.new(prevBlock.index+1, curNonce, prevBlock.hash) |> Sha.insert_hash(curHash)
+        Genclass.broadCastBlock(:user, [block])
+        chain =  chain |> Blockchain.insert_block(block)
+        #IO.inspect chain
+        chain
     end
 
     def findNonce(datahash) do
