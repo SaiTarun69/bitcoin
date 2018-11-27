@@ -5,42 +5,26 @@ defmodule Bitcoin do
            else
               div(num, 10)
            end
-    userLen=Enum.map(1..num,&(&1))
+    userLen = Enum.map(1..num,&(&1))
     minorLen = Enum.take_random(userLen, mlen)
     userLen = userLen -- minorLen
-    userli=Enum.map(userLen, fn(x) ->
-      {:ok, pid}= Genclass.start_link(:user)
-      private_key = :crypto.strong_rand_bytes(32) |> Base.encode16
-      public_key = :crypto.generate_key(:ecdh, :crypto.ec_curve(:secp256k1), private_key)
-                    |> elem(0) |> Base.encode16
-      Genclass.processKeys(pid, x, private_key, public_key)
-      pid
-      end)
+    userli=userlist(userLen)
 
-    minorli=Enum.map(minorLen, fn(x) ->
-      {:ok, pid}= Genclass.start_link2({:user, :minor})
-      private_key = :crypto.strong_rand_bytes(32) |> Base.encode16
-      public_key = :crypto.generate_key(:ecdh, :crypto.ec_curve(:secp256k1), private_key)
-                    |> elem(0) |> Base.encode16
-      Genclass.processKeys(pid, x, private_key, public_key)
-      pid
-      end)
+    minorli=minorList(minorLen)
 
     totalUsers = userli ++ minorli
-    transactionList = Enum.map(totalUsers, fn(x) ->
-                        tli = [0, Genclass.getPublicKey(x), 100]
-                        Genclass.broadCastTransactions(:user, tli)
-                        tli
-                      end)
+    [mainSK, mainPK] = wallet
+    tarnsactionList = genblockTransLi(totalUsers, mainSK, mainPK)
     IO.inspect totalUsers
-    datahash= :crypto.hash(:sha256, transactionList++["0"]++[0]) |> Base.encode16
+    datahash = dataHasing(tarnsactionList, ["0"], [0])
+    #datahash= :crypto.hash(:sha256, transactionList++["0"]++[0]) |> Base.encode16
     #IO.inspect datahash
     genNonce = Transaction.findNonce(datahash)
     curHash = Transaction.findCurHash(datahash, genNonce)
-    chain = Blockchain.new([], transactionList, genNonce, curHash)
+    chain = Blockchain.new([], tarnsactionList, genNonce, curHash)
     #IO.inspect chain
 
-    Genclass.broadCastBlock(:user, chain)
+    Genclass.broadCastBlock(:user, chain, [])
 
     # Enum.each(totalUsers, fn(x) ->
     #             Genclass.broadCastTransactions(x, transactionList)
@@ -56,19 +40,27 @@ defmodule Bitcoin do
 
     Transaction.transaction(totalUsers, 0, chain)
 
-    Enum.each(totalUsers, fn(x) ->
-      temp = Genclass.getBlockLi(x)
-      IO.puts "*******************************************************************************"
-      IO.inspect temp
-    end)
+    # Enum.each(totalUsers, fn(x) ->
+    #   temp = Genclass.getBlockLi(x)
+    #   IO.puts "*******************************************************************************"
+    #   IO.inspect temp
+    # end)
+
+    tempBlockli = Genclass.getBlockLi(Enum.at(totalUsers, 0))
+    #tempBlock = Enum.at(tempBlockli, 0)
+    #IO.inspect tempBlockli
+    #flag =  valid_block?(tempBlock)
+    #IO.inspect flag
     # Enum.each(li, fn(x) ->
     #     bal=Genclass.getAmount(x)
     #     IO.inspect bal
     #   end)
 
     # Enum.each(totalUsers, fn(x) ->
+    #   IO.puts "*****************************************************************************"
     #   temp = Genclass.getTranLi(x)
     #   IO.inspect temp
+    #   IO.inspect length(temp)
     # end)
     
     # Enum.map(0..num-1, fn(x) ->
@@ -88,6 +80,64 @@ defmodule Bitcoin do
     # end)
 
     #loopfun(1)
+  end
+
+  def wallet do
+    private_key = :crypto.strong_rand_bytes(32)
+    public_key = :crypto.generate_key(:ecdh, :crypto.ec_curve(:secp256k1), private_key)
+                    |> elem(0)
+    [private_key, public_key]
+  end
+  
+  def userlist(userLen) do
+    Enum.map(userLen, fn(x) ->
+      {:ok, pid}= Genclass.start_link(:user)
+      [sk, pk] = wallet
+      # private_key = :crypto.strong_rand_bytes(32)
+      # public_key = :crypto.generate_key(:ecdh, :crypto.ec_curve(:secp256k1), private_key)
+      #               |> elem(0)
+      Genclass.processKeys(pid, x, sk, pk)
+      pid
+      end)
+  end
+
+  def minorList(minorLen) do
+    Enum.map(minorLen, fn(x) ->
+      {:ok, pid}= Genclass.start_link2({:user, :minor})
+      [sk, pk] = wallet
+      # private_key = :crypto.strong_rand_bytes(32)
+      # public_key = :crypto.generate_key(:ecdh, :crypto.ec_curve(:secp256k1), private_key) |> elem(0)
+      Genclass.processKeys(pid, x, sk, pk)
+      pid
+      end)
+  end
+
+  def dataHasing(transactionList, prev_hash, index) do
+    datahash= :crypto.hash(:sha256, transactionList++prev_hash++index) |> Base.encode16
+    datahash
+  end
+
+  def genblockTransLi(totalUsers, mainSK, mainPK) do
+    Enum.map(totalUsers, fn(x) ->
+      #tli = [0, Genclass.getProcId(x), 100]
+      messageStr = "Main process to "<>Integer.to_string(Genclass.getProcId(x))<>" amount of 100"
+      signature = :crypto.sign(:ecdsa, :sha256, messageStr, [mainSK, :secp256k1])
+      Genclass.broadCastTransactions(:user, messageStr, mainPK, signature)
+      messageStr
+    end)
+  end
+
+  def valid_block?(%Block{} = tempBlock) do
+    Sha.hash(tempBlock) == tempBlock.hash
+  end
+
+  def validate_chain?(chain, %Block{} = block) do
+    if block.prev_hash != "0" do
+      head = hd(chain)
+      head.hash == block.prev_hash
+    else
+      true
+    end
   end
 
   def loopfun(1) do

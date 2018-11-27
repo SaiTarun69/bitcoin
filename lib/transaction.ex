@@ -9,6 +9,8 @@ defmodule Transaction do
             #IO.inspect chain
             :timer.sleep(5)
             transaction(li, count+1, chain)
+        else
+            :ok
         end
     end
 
@@ -28,14 +30,16 @@ defmodule Transaction do
             amount = Enum.random(1..50)
             senderBal = Genclass.getAmount(sender)
             receiverBal = Genclass.getAmount(receiver)
-            if(senderBal >= amount) do
+            if balance_Check?(senderBal, amount) do
                 Genclass.setAmount(sender, senderBal-amount)
                 Genclass.setAmount(receiver, receiverBal+amount)
-                tranli = [Genclass.getProcId(sender), Genclass.getProcId(receiver), amount]
-                Genclass.broadCastTransactions(:user, tranli)
+                #tranli = [Genclass.getProcId(sender), Genclass.getProcId(receiver), amount]
+                messageStr = Integer.to_string(Genclass.getProcId(sender))<>" to "<>Integer.to_string(Genclass.getProcId(receiver))<>" amount of "<>Integer.to_string(amount)
+                signature = signatureFun?(messageStr, sender)
+                Genclass.broadCastTransactions(:user, messageStr, Genclass.getPublicKey(sender), signature)
                 #IO.inspect tranli
                 #IO.inspect blockli
-                recFun(li, n-1, blockli++[tranli])
+                recFun(li, n-1, blockli++[messageStr])
             else
                 #IO.puts "comes to else"
                 recFun(li, n, blockli)
@@ -44,14 +48,23 @@ defmodule Transaction do
         blockli
     end
 
+    def balance_Check?(senderBal, amount) do
+        senderBal >= amount
+    end
+
+    def signatureFun?(messageStr, sender) do
+        :crypto.sign(:ecdsa, :sha256, messageStr, [Genclass.getPrivateKey(sender), :secp256k1])
+    end
+
     def mineFun(minordata, chain) do
         IO.puts "---------------------------------------------------------"
         prevBlock = hd(chain)
-        datahash= :crypto.hash(:sha256, minordata++[prevBlock.hash]++[prevBlock.index+1]) |> Base.encode16
+        datahash = Bitcoin.dataHasing(minordata, [prevBlock.hash], [prevBlock.index+1])
+        #datahash= :crypto.hash(:sha256, minordata++[prevBlock.hash]++[prevBlock.index+1]) |> Base.encode16
         curNonce = findNonce(datahash)
         curHash = findCurHash(datahash, curNonce)
         block = minordata |> Block.new(prevBlock.index+1, curNonce, prevBlock.hash) |> Sha.insert_hash(curHash)
-        Genclass.broadCastBlock(:user, [block])
+        Genclass.broadCastBlock(:user, [block], chain)
         chain =  chain |> Blockchain.insert_block(block)
         #IO.inspect chain
         chain

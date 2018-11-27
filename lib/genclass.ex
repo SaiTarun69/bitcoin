@@ -121,9 +121,17 @@ defmodule Genclass do
     #     {:noreply, state}
     # end
 
-    def broadCastTransactions(topic, message) do
+    def verifyFun?(message, pk, signature) do
+        :crypto.verify(:ecdsa, :sha256, message, signature, [pk, :secp256k1])
+    end
+
+    def broadCastTransactions(topic, message, pk, signature) do
         #GenServer.cast(pid, {:tranCast, tranToUpdate})
-        GenServer.cast({:via, :gproc, gproc_key(:user)}, {:userComm, message})
+        flag = verifyFun?(message, pk, signature)
+        #IO.inspect flag
+        if flag do
+            GenServer.cast({:via, :gproc, gproc_key(:user)}, {:userComm, message})
+        end
     end
 
     def handle_cast({:userComm, message}, state) do
@@ -161,9 +169,12 @@ defmodule Genclass do
         {:reply, msg, state}
     end
 
-    def broadCastBlock(topic, chain) do
+    def broadCastBlock(topic, chain, curChain) do
         #GenServer.cast(pid, {:tranCast, tranToUpdate})
-        GenServer.cast({:via, :gproc, gproc_key(:user)}, {:blockComm, chain})
+        block = Enum.at(chain, 0)
+        if Bitcoin.valid_block?(block)&&Bitcoin.validate_chain?(curChain, block) do
+            GenServer.cast({:via, :gproc, gproc_key(:user)}, {:blockComm, chain}) 
+        end
     end
 
     def handle_cast({:blockComm, chain}, state) do
